@@ -1,0 +1,57 @@
+version: '3.1'
+
+services:
+  mongo:
+    container_name: store-manager-mongo-db
+    image: mongo:4.0.4
+    restart: always
+    ports:
+      - '27017:27017'
+    volumes:
+      - ./database:/data/db
+    networks:
+      - default-network
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongo mongo:27017/test --quiet
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+  mongo-express:
+    container_name: store-manager-mongo-express
+    image: mongo-express
+    restart: always
+    ports:
+      - 9081:8081
+    environment:
+      ME_CONFIG_MONGODB_URL: "mongodb://mongo:27017/"
+    links:
+      - mongo
+    depends_on:
+      mongo:
+        condition: service_healthy
+    networks:
+      - default-network
+
+  store-manager-server:
+    container_name: store-manager-server
+    build:
+      context: .
+      dockerfile: Dockerfile
+    links:
+      - mongo
+    depends_on:
+      mongo:
+        condition: service_healthy
+    ports:
+      - ${SERVER_PORT}:${SERVER_PORT}
+    environment:
+      PORT: ${SERVER_PORT}
+      MONGO_DB_URL: "mongodb://mongo:27017/${DB_NAME}"
+    networks:
+      - default-network
+
+networks: 
+    default-network:
+      driver: bridge
